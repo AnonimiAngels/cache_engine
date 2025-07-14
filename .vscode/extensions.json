@@ -1,0 +1,13 @@
+{
+	"recommendations": [
+		"llvm-vs-code-extensions.vscode-clangd",
+		"tdennis4496.cmantic",
+		"xaver.clang-format",
+		"vadimcn.vscode-lldb",
+		"guyutongxue.cpp-reference",
+		"oderwat.indent-rainbow",
+		"apvarun.celestial",
+		"pkief.material-icon-theme",
+		"google.geminicodeassist",
+	]
+}

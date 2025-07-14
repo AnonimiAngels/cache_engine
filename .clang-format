@@ -1,0 +1,104 @@
+---
+Language: Cpp
+BasedOnStyle: LLVM
+Standard: c++11
+
+# Indentation
+UseTab: Always
+TabWidth: 4
+IndentWidth: 4
+ContinuationIndentWidth: 4
+ConstructorInitializerIndentWidth: 4
+
+# Braces
+BreakBeforeBraces: Allman
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: InlineOnly
+AllowShortBlocksOnASingleLine: Never
+AllowShortCaseLabelsOnASingleLine: false
+
+# Spacing
+SpaceBeforeParens: ControlStatements
+SpaceInEmptyParentheses: false
+SpacesInParentheses: false
+SpacesInAngles: false
+SpaceAfterCStyleCast: false
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeRangeBasedForLoopColon: true
+BitFieldColonSpacing: After
+
+# Line breaks
+ColumnLimit: 190
+MaxEmptyLinesToKeep: 1
+SpacesBeforeTrailingComments: 4
+KeepEmptyLinesAtTheStartOfBlocks: true
+
+# Alignment
+AlignAfterOpenBracket: Align
+AlignConsecutiveAssignments: Consecutive
+AlignConsecutiveBitFields: Consecutive
+AlignConsecutiveDeclarations: None
+AlignOperands: Align
+AlignTrailingComments: true
+
+# Pointers and references
+PointerAlignment: Left
+ReferenceAlignment: Left
+
+# Include sorting
+SortIncludes: true
+IncludeBlocks: Regroup
+IncludeCategories:
+  - Regex: '^<.*\.h>'
+    Priority: 1
+  - Regex: '^<.*>'
+    Priority: 2
+  - Regex: '.*'
+    Priority: 3
+
+# Function formatting
+AlwaysBreakAfterReturnType: None
+AllowAllParametersOfDeclarationOnNextLine: true
+BinPackParameters: false
+BinPackArguments: false
+
+# Misc
+FixNamespaceComments: true
+CompactNamespaces: false
+NamespaceIndentation: All
+
+# C++11 specific
+Cpp11BracedListStyle: true
+
+# Access modifiers
+AccessModifierOffset: -4
+
+# Case labels
+IndentCaseLabels: false
+
+# Comments
+ReflowComments: true
+
+# Penalty settings for better formatting
+PenaltyBreakBeforeFirstCallParameter: 100
+PenaltyBreakComment: 300
+PenaltyBreakFirstLessLess: 120
+PenaltyBreakString: 1000
+PenaltyExcessCharacter: 1000000
+PenaltyReturnTypeOnItsOwnLine: 60
+
+# Break before operators
+BreakBeforeBinaryOperators: NonAssignment
+BreakBeforeTernaryOperators: true
+
+# Constructor initializers
+BreakConstructorInitializers: BeforeColon
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+
+# Disable some auto-formatting that might conflict with style
+DerivePointerAlignment: false
+DisableFormat: false
+
+# Empty line handling
+SeparateDefinitionBlocks: Always

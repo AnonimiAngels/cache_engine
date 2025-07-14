@@ -1,0 +1,454 @@
+#!/usr/bin/env python3
+"""
+File: scripts/compile_build
+ECS Graphics Engine Build Script - Simplified Configuration Check
+"""
+
+import argparse
+import os
+import pathlib
+import subprocess
+import sys
+import time
+from typing import Tuple
+
+
+class colors:
+	"""ANSI color codes for terminal output."""
+	red = '\033[0;31m'
+	green = '\033[0;32m'
+	yellow = '\033[1;33m'
+	blue = '\033[0;34m'
+	nc = '\033[0m'  # No Color
+
+
+class logger:
+	"""Simple logging class with colored output."""
+
+	@staticmethod
+	def info(message: str) -> None:
+		print(f"{colors.blue}[INFO]{colors.nc} {message}")
+
+	@staticmethod
+	def success(message: str) -> None:
+		print(f"{colors.green}[SUCCESS]{colors.nc} {message}")
+
+	@staticmethod
+	def warning(message: str) -> None:
+		print(f"{colors.yellow}[WARNING]{colors.nc} {message}")
+
+	@staticmethod
+	def error(message: str) -> None:
+		print(f"{colors.red}[ERROR]{colors.nc} {message}")
+
+
+class build_config:
+	"""Build configuration container."""
+
+	def __init__(self):
+		self.build_dir = "build"
+		self.build_type = "Debug"
+		self.headless = False
+		self.examples = True
+		self.tests = False
+		self.profiler = True
+		self.policies = False
+		self.optimize = False
+		self.all = False
+		self.clean = False
+		self.verbose = False
+		self.force_config = False
+		self.project_dir = pathlib.Path.cwd().name
+
+	def __str__(self) -> str:
+		return f"""Cache Engine Build Configuration:
+Build Directory: {self.build_dir}
+Build Type: {self.build_type}
+Headless Mode: {'ON' if self.headless else 'OFF'}
+Build Examples: {'ON' if self.examples else 'OFF'}
+Build Tests: {'ON' if self.tests else 'OFF'}
+Enable Profiler: {'ON' if self.profiler else 'OFF'}
+Policy Validation: {'ON' if self.policies else 'OFF'}
+Performance Optimization: {'ON' if self.optimize else 'OFF'}
+Build All Components: {'ON' if self.all else 'OFF'}
+Clean Build: {self.clean}
+Force Config: {self.force_config}
+Verbose: {self.verbose}"""
+
+
+class cmake_config_checker:
+	"""Handles CMake configuration change detection with simplified file checking."""
+
+	def __init__(self, config: build_config):
+		self.config = config
+		self.build_path = pathlib.Path(config.build_dir)
+		self.cmake_cache_file = self.build_path / "CMakeCache.txt"
+		self.build_ninja_file = self.build_path / "build.ninja"
+		self.main_cmake_file = pathlib.Path("CMakeLists.txt")
+
+	def is_reconfiguration_needed(self) -> bool:
+		"""Check if CMake reconfiguration is needed based on file timestamps."""
+
+		if not self.build_path.exists():
+			if self.config.verbose:
+				logger.info("Build directory does not exist, configuration needed")
+			return True
+
+		if not self.cmake_cache_file.exists():
+			if self.config.verbose:
+				logger.info("CMakeCache.txt not found, configuration needed")
+			return True
+
+		if not self.build_ninja_file.exists():
+			if self.config.verbose:
+				logger.info("build.ninja not found, configuration needed")
+			return True
+
+		if not self.main_cmake_file.exists():
+			logger.error("Main CMakeLists.txt not found")
+			return True
+
+		if self.config.force_config:
+			logger.info("Force reconfiguration requested")
+			return True
+
+		# Check if main CMakeLists.txt is newer than the build files
+		if self._is_cmake_newer_than_build_files():
+			return True
+
+		return False
+
+	def _is_cmake_newer_than_build_files(self) -> bool:
+		"""Check if main CMakeLists.txt is newer than CMakeCache.txt and build.ninja."""
+		try:
+			cmake_mtime = self.main_cmake_file.stat().st_mtime
+			cache_mtime = self.cmake_cache_file.stat().st_mtime
+			ninja_mtime = self.build_ninja_file.stat().st_mtime
+
+			if self.config.verbose:
+				logger.info(f"File timestamps:")
+				logger.info(f"  CMakeLists.txt: {time.ctime(cmake_mtime)}")
+				logger.info(f"  CMakeCache.txt: {time.ctime(cache_mtime)}")
+				logger.info(f"  build.ninja: {time.ctime(ninja_mtime)}")
+
+			if cmake_mtime > cache_mtime:
+				logger.info("CMakeLists.txt is newer than CMakeCache.txt, reconfiguration needed")
+				return True
+
+			if cmake_mtime > ninja_mtime:
+				logger.info("CMakeLists.txt is newer than build.ninja, reconfiguration needed")
+				return True
+
+			return False
+
+		except OSError as e:
+			if self.config.verbose:
+				logger.warning(f"Error checking file timestamps: {e}")
+			return True
+
+
+class build_system:
+	"""Handles the actual build process."""
+
+	def __init__(self, config: build_config):
+		self.config = config
+		self.build_path = pathlib.Path(config.build_dir)
+
+	def get_compiler(self) -> str:
+		"""Get the C++ compiler to use."""
+		import shutil
+		if shutil.which("clang++"):
+			return "g++"
+		elif shutil.which("g++"):
+			return "g++"
+		else:
+			logger.error("No suitable C++ compiler found (clang++ or g++). Please install one of them.")
+			sys.exit(1)
+
+	def configure(self) -> bool:
+		"""Run CMake configuration."""
+		logger.info(f"Configuring project with {self.config.build_type} build in: {self.config.build_dir}")
+
+		cmake_args = [
+			"cmake",
+			"-S", ".",
+			"-B", self.config.build_dir,
+			"-GNinja",
+			f"-DCMAKE_BUILD_TYPE={self.config.build_type}",
+			f"-DCMAKE_CXX_COMPILER={self.get_compiler()}",
+			f"-DENGINE_BUILD_HEADLESS={'ON' if self.config.headless else 'OFF'}",
+			f"-DENGINE_BUILD_EXAMPLES={'ON' if self.config.examples else 'OFF'}",
+			f"-DBUILD_TESTS={'ON' if self.config.tests else 'OFF'}",
+			f"-DENGINE_ENABLE_PROFILER={'ON' if self.config.profiler else 'OFF'}",
+			f"-DBUILD_BENCHMARKS={'ON' if self.config.policies else 'OFF'}",
+			f"-DENABLE_POLICY_VALIDATION={'ON' if self.config.policies else 'OFF'}",
+			f"-DENABLE_PERFORMANCE_OPTIMIZATION={'ON' if self.config.optimize else 'OFF'}",
+			# Enable ASAN for Debug builds
+			f"-DENABLE_ASAN={'ON' if self.config.build_type == 'Debug' else 'OFF'}"
+		]
+
+		if self.config.verbose:
+			cmake_args.append("--log-level=VERBOSE")
+		else:
+			cmake_args.append("--log-level=WARNING")
+
+		try:
+			if self.config.verbose:
+				# Show output in real-time when verbose
+				result = subprocess.run(cmake_args, check=True)
+			else:
+				# Capture output but show errors if they occur
+				result = subprocess.run(cmake_args, check=True, capture_output=True, text=True)
+
+			logger.success("Configuration completed")
+			return True
+		except subprocess.CalledProcessError as e:
+			logger.error("CMake configuration failed")
+			self._display_error_output(e)
+			return False
+
+	def build(self) -> Tuple[bool, float]:
+		"""Run the build process."""
+		logger.info("Building project...")
+
+		ninja_args = ["ninja", "-C", self.config.build_dir]
+
+		if self.config.verbose:
+			ninja_args.append("-v")
+
+		start_time = time.time()
+
+		try:
+			if self.config.verbose:
+				# Show output in real-time when verbose
+				subprocess.run(ninja_args, check=True)
+			else:
+				# Capture output but show errors if they occur
+				result = subprocess.run(ninja_args, check=True, capture_output=True, text=True)
+
+			build_duration = time.time() - start_time
+			logger.success(f"Build completed successfully in {build_duration:.1f} seconds")
+			return True, build_duration
+		except subprocess.CalledProcessError as e:
+			logger.error("Build failed")
+			self._display_error_output(e)
+			return False, 0.0
+
+	def _display_error_output(self, exception: subprocess.CalledProcessError) -> None:
+		"""Display detailed error output from failed subprocess."""
+		logger.error(f"Command failed with return code {exception.returncode}")
+		logger.error(f"Command: {' '.join(exception.cmd)}")
+
+		if hasattr(exception, 'stdout') and exception.stdout:
+			print(f"\n{colors.blue}=== STDOUT ==={colors.nc}")
+			print(exception.stdout)
+
+		if hasattr(exception, 'stderr') and exception.stderr:
+			print(f"\n{colors.red}=== STDERR ==={colors.nc}")
+			print(exception.stderr)
+
+		# Additional debugging information
+		if not self.config.verbose:
+			print(f"\n{colors.yellow}Tip: Run with -v flag for more detailed output{colors.nc}")
+
+	def show_executable_info(self) -> None:
+		"""Show information about the built executable."""
+		executable_path = self.build_path / self.config.project_dir
+
+		if executable_path.exists():
+			logger.info(f"Executable created: {executable_path}")
+
+			try:
+				size_bytes = executable_path.stat().st_size
+				size_mb = size_bytes / (1024 * 1024)
+				logger.info(f"Executable size: {size_mb:.1f}M")
+			except OSError:
+				pass
+		else:
+			logger.warning(f"Expected executable not found: {executable_path}")
+
+
+def parse_arguments() -> build_config:
+	"""Parse command line arguments."""
+	parser = argparse.ArgumentParser(
+		description="Cache Engine Build Script - Policy-Based Architecture",
+		formatter_class=argparse.RawDescriptionHelpFormatter,
+		epilog="""
+Examples:
+%(prog)s                      # Standard debug build
+%(prog)s -t Release -v        # Release build with verbose output
+%(prog)s -T ON                # Build with tests enabled
+%(prog)s -P                   # Enable policy validation and benchmarks
+%(prog)s -O                   # Enable performance optimizations
+%(prog)s -A                   # Build everything (tests + benchmarks + optimizations)
+%(prog)s -c -t Debug          # Clean debug build
+%(prog)s -f                   # Force reconfiguration
+		"""
+	)
+
+	parser.add_argument(
+		"-d", "--dir",
+		default="build",
+		help="Build directory (default: build)"
+	)
+
+	parser.add_argument(
+		"-t", "--type",
+		choices=["Debug", "Release", "RelWithDebInfo"],
+		default="Debug",
+		help="Build type (default: Debug)"
+	)
+
+	parser.add_argument(
+		"--headless",
+		action="store_true",
+		help="Build in headless mode (no graphics)"
+	)
+
+	parser.add_argument(
+		"-e", "--examples",
+		type=lambda x: x.upper() == "ON",
+		default=True,
+		help="Build examples (ON|OFF, default: ON)"
+	)
+
+	parser.add_argument(
+		"-T", "--tests",
+		type=lambda x: x.upper() == "ON",
+		default=False,
+		help="Build tests (ON|OFF, default: OFF)"
+	)
+
+	parser.add_argument(
+		"-p", "--profiler",
+		type=lambda x: x.upper() == "ON",
+		default=True,
+		help="Enable profiler (ON|OFF, default: ON)"
+	)
+
+	parser.add_argument(
+		"-c", "--clean",
+		action="store_true",
+		help="Clean build directory first"
+	)
+
+	parser.add_argument(
+		"-f", "--force-config",
+		action="store_true",
+		help="Force CMake reconfiguration"
+	)
+
+	parser.add_argument(
+		"-P", "--policies",
+		action="store_true",
+		help="Enable policy validation and analysis"
+	)
+
+	parser.add_argument(
+		"-O", "--optimize",
+		action="store_true",
+		help="Enable performance optimizations for policy-based architecture"
+	)
+
+	parser.add_argument(
+		"-A", "--all",
+		action="store_true",
+		help="Build everything (tests + benchmarks + optimizations)"
+	)
+
+	parser.add_argument(
+		"-v", "--verbose",
+		action="store_true",
+		help="Verbose output"
+	)
+
+	args = parser.parse_args()
+
+	config = build_config()
+	config.build_dir = args.dir
+	config.build_type = args.type
+	config.headless = args.headless
+	config.examples = args.examples
+	config.tests = args.tests
+	config.profiler = args.profiler
+	config.policies = args.policies
+	config.optimize = args.optimize
+	config.all = args.all
+	config.clean = args.clean
+	config.verbose = args.verbose
+	config.force_config = args.force_config
+
+	# Handle --all flag by enabling tests, benchmarks, and optimizations
+	if config.all:
+		config.tests = True
+		config.policies = True
+		config.optimize = True
+
+	return config
+
+
+def main() -> int:
+	"""Main function."""
+	try:
+		config = parse_arguments()
+
+		logger.info(str(config))
+		print()
+
+		if not pathlib.Path("CMakeLists.txt").exists():
+			logger.error("CMakeLists.txt not found. Please run this script from the project root.")
+			return 1
+
+		if config.clean:
+			logger.info("Cleaning build directory...")
+			build_path = pathlib.Path(config.build_dir)
+			if build_path.exists():
+				import shutil
+				shutil.rmtree(build_path)
+
+		build_path = pathlib.Path(config.build_dir)
+		if not build_path.exists():
+			logger.info(f"Creating build directory: {config.build_dir}")
+			build_path.mkdir(parents=True, exist_ok=True)
+
+		checker = cmake_config_checker(config)
+		build_system_instance = build_system(config)
+
+		if checker.is_reconfiguration_needed():
+			if not build_system_instance.configure():
+				return 1
+		else:
+			logger.info(f"Build files are up to date for {config.build_type} build in: {config.build_dir}")
+
+		success, duration = build_system_instance.build()
+		if not success:
+			return 1
+
+		build_system_instance.show_executable_info()
+
+		if (config.build_type == "Debug" and config.verbose and
+			(build_path / config.project_dir).exists()):
+
+			try:
+				response = input("\nRun the built executable? (y/N): ")
+				if response.lower() in ('y', 'yes'):
+					logger.info(f"Running {build_path / config.project_dir}")
+					subprocess.run([f"./{build_path / config.project_dir}"], check=True)
+			except (KeyboardInterrupt, EOFError):
+				print()
+
+		return 0
+
+	except KeyboardInterrupt:
+		logger.warning("Build interrupted by user")
+		return 130
+	except Exception as e:
+		logger.error(f"Unexpected error: {e}")
+		if hasattr(config, 'verbose') and config.verbose:
+			import traceback
+			traceback.print_exc()
+		return 1
+
+
+if __name__ == "__main__":
+	sys.exit(main())

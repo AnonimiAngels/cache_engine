@@ -1,0 +1,161 @@
+#!/bin/bash
+
+# Script to ensure all source files have proper header comments and formatting
+# Usage: ./check_file_headers.sh
+
+# Array of directories to check
+dirs=("src" "inc")
+
+# File extensions to process
+extensions=("*.cpp" "*.hpp" "*.h" "*.cc" "*.cxx")
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Counters
+files_processed=0
+files_modified=0
+files_already_correct=0
+
+# Function to check and fix file header
+check_and_fix_header() {
+	local file_path="$1"
+	local relative_path="${file_path#./}"
+	local expected_comment="// File: ${relative_path}"
+
+	# Check if file exists and is readable
+	if [[ ! -f "$file_path" || ! -r "$file_path" ]]; then
+		echo -e "${RED}Error: Cannot read file $file_path${NC}"
+		return 1
+	fi
+
+	# Read the first two lines to check current state
+	local first_line=""
+	local second_line=""
+	local line_count=0
+
+	while IFS= read -r line && [[ $line_count -lt 2 ]]; do
+		if [[ $line_count -eq 0 ]]; then
+			first_line="$line"
+		elif [[ $line_count -eq 1 ]]; then
+			second_line="$line"
+		fi
+		((line_count++))
+	done < "$file_path"
+
+	# Get total line count
+	local total_lines=$(wc -l < "$file_path")
+
+	# Check if the first line matches expected comment
+	if [[ "$first_line" == "$expected_comment" ]]; then
+		# Comment exists, check if there's a proper newline after it
+		if [[ $total_lines -eq 1 || (-n "$second_line" && "$second_line" != "") ]]; then
+			# Need to add newline after comment
+			echo -e "${YELLOW}Adding newline after header comment in: $relative_path${NC}"
+
+			# Create temporary file with proper formatting
+			{
+				echo "$expected_comment"
+				echo ""
+				tail -n +2 "$file_path"
+			} > "${file_path}.tmp"
+
+			# Replace original file
+			mv "${file_path}.tmp" "$file_path"
+			((files_modified++))
+		else
+			# File is already correctly formatted
+			echo -e "${GREEN}✓ $relative_path${NC}"
+			((files_already_correct++))
+		fi
+	else
+		# Comment doesn't exist or is incorrect, add it
+		echo -e "${YELLOW}Adding header comment to: $relative_path${NC}"
+
+		# Create temporary file with header comment
+		{
+			echo "$expected_comment"
+			echo ""
+			cat "$file_path"
+		} > "${file_path}.tmp"
+
+		# Replace original file
+		mv "${file_path}.tmp" "$file_path"
+		((files_modified++))
+	fi
+
+	((files_processed++))
+}
+
+# Function to find and process files
+process_directory() {
+	local dir="$1"
+
+	if [[ ! -d "$dir" ]]; then
+		echo -e "${RED}Warning: Directory '$dir' does not exist${NC}"
+		return 1
+	fi
+
+	echo -e "${GREEN}Processing directory: $dir${NC}"
+
+	# Find all files with specified extensions (recursively)
+	for ext in "${extensions[@]}"; do
+		while IFS= read -r -d '' file; do
+			check_and_fix_header "$file"
+		done < <(find "$dir" -name "$ext" -type f -print0)
+	done
+}
+
+# Function to format files with clang-format (recursively)
+format_files() {
+	local dir="$1"
+
+	echo -e "${GREEN}Formatting files in directory: $dir${NC}"
+
+	# Use find to get all C++ files recursively and format them
+	find "$dir" \( -name "*.cpp" -o -name "*.hpp" -o -name "*.h" -o -name "*.cc" -o -name "*.cxx" \) -type f | while read -r file; do
+		echo -e "${YELLOW}Formatting: $file${NC}"
+		clang-format -i "$file"
+	done
+}
+
+# Main execution
+main() {
+	echo "File Header Checker and Formatter Script"
+	echo "========================================"
+	echo "Extensions: ${extensions[*]}"
+	echo "Directories: ${dirs[*]}"
+	echo ""
+
+	# Process each directory for headers first
+	for dir in "${dirs[@]}"; do
+		process_directory "$dir"
+		echo ""
+	done
+
+	# Then format all files
+	echo "Running clang-format on all files..."
+	for dir in "${dirs[@]}"; do
+		format_files "$dir"
+		echo ""
+	done
+
+	# Print summary
+	echo "Summary:"
+	echo "========"
+	echo -e "Files processed: ${files_processed}"
+	echo -e "Files modified: ${files_modified}"
+	echo -e "Files already correct: ${files_already_correct}"
+
+	if [[ $files_modified -gt 0 ]]; then
+		echo -e "${GREEN}✓ Script completed successfully. $files_modified files were updated.${NC}"
+	else
+		echo -e "${GREEN}✓ All files already have correct headers.${NC}"
+	fi
+}
+
+# Run the script
+main "$@"

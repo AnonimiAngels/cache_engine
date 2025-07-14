@@ -1,0 +1,33 @@
+{
+	"configurations": [
+		{
+			"args": [],
+			"breakpointMode": "path",
+			"cwd": "${workspaceFolder}",
+			"env": {
+				"ASAN_OPTIONS": "halt_on_error=1:detect_stack_use_after_return=1",
+				"PATH": "${env:PATH}",
+				"XTERM": "xterm-256color"
+			},
+			"exitCommands": [
+				"quit",
+				"clear"
+			],
+			"name": "Debug with LLDB",
+			"preLaunchTask": "build",
+			"preRunCommands": [
+				"breakpoint set --name __asan_report_error"
+			],
+			"program": "${workspaceFolder}/build/${workspaceFolderBasename}",
+			"request": "launch",
+			"reverseDebugging": true,
+			"sourceLanguages": [
+				"cpp"
+			],
+			"stopOnEntry": false,
+			"terminal": "integrated",
+			"type": "lldb"
+		}
+	],
+	"version": "0.2.0"
+}

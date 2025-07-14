@@ -1,0 +1,34 @@
+#!/bin/bash
+
+path=$1 # Directories
+class_name=$2 # Class name
+
+if [ -z "$path" ]; then
+	echo "Usage: $0 <path>"
+	exit 1
+fi
+
+dir_include="inc"
+dir_source="src"
+
+ext_header=".hpp"
+ext_source=".cpp"
+
+
+echo "Creating directories in $path"
+mkdir -p "$dir_include/$path" "$dir_source/$path"
+
+echo "Creating class files in $path"
+if [ -e "$dir_include/$path/$class_name$ext_header" ]; then
+	echo "Header file already exists: $dir_include/$path/$class_name$ext_header"
+else
+	touch "$dir_include/$path/$class_name$ext_header"
+	echo "// File: $path/$class_name$ext_header" > "$dir_include/$path/$class_name$ext_header"
+fi
+
+if [ -e "$dir_source/$path/$class_name$ext_source" ]; then
+	echo "Source file already exists: $dir_source/$path/$class_name$ext_source"
+else
+	touch "$dir_source/$path/$class_name$ext_source"
+	echo "// File: $path/$class_name$ext_source" > "$dir_source/$path/$class_name$ext_source"
+fi

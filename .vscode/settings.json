@@ -1,0 +1,33 @@
+{
+	"clangd.arguments": [
+	  "--compile-commands-dir=${workspaceFolder}/build",
+	  "--clang-tidy",
+	  "--fallback-style=none",
+	  "--query-driver=/usr/bin/clang++",
+	  "--all-scopes-completion",
+	  "--background-index",
+	  "--background-index-priority=normal",
+	  "--clang-tidy",
+	  "--completion-style=detailed",
+	  "--experimental-modules-support",
+	  "--header-insertion=never",
+	  "--header-insertion-decorators",
+	  "--import-insertions",
+	  "--limit-references=0",
+	  "--limit-results=0",
+	  "--rename-file-limit=0",
+	  "-j",
+	  "16",
+	  "--malloc-trim",
+	  "--pch-storage=memory",
+	  "--log=info",
+	  "--pretty"
+	],
+	"clangd.path": "/usr/bin/clangd",
+	"clangd.checkUpdates": false,
+	"clangd.enableCodeCompletion": true,
+	"clangd.inactiveRegions.useBackgroundHighlight": true,
+	"clangd.onConfigChanged": "restart",
+	"clangd.restartAfterCrash": true,
+	"clangd.serverCompletionRanking": true
+}

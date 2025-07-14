@@ -1,0 +1,10 @@
+#!/bin/bash
+# shellcheck disable=SC2317
+
+return 0
+
+# This script formats all C/C++ source files in the src and inc directories using clang-format.
+rg --files --glob 'src/*.{c,cpp,h,hpp,cc,cxx}' --glob 'inc/*.{c,cpp,h,hpp,cc,cxx}' | xargs -I {} clang-format -i {}
+
+# Remove all single-line comments (//) from C/C++ source files in src and inc directories
+rg -l '//' --type cpp ./src ./inc | xargs sed -i 's/\/\/.*$//' || true
